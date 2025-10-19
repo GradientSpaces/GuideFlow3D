@@ -23,12 +23,13 @@
 
 <p align="center">
   <a href="">
-    <img src="https://sayands.github.io/images/guideflow3d_teaser.gif" width="100%">
+    <img src="https://github.com/sayands/guideflow3d/blob/main/assets/guideflow3d_teaser.gif" width="100%">
   </a>
 </p>
 
-
-**_TL;DR:_** *3D appearance transfer pipeline robust to strong geometric variations between objects.*
+<h5 align="left">
+<em>TL;DR:</em> 3D appearance transfer pipeline robust to strong geometric variations between objects.
+</h5>
 
 ## 📃 Abstract
 

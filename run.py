@@ -1,3 +1,4 @@
+from html import parser
 import os.path as osp
 import gc
 import trimesh
@@ -13,13 +14,15 @@ from torchvision import transforms
 from lightning.pytorch import seed_everything, Trainer
 from lightning.pytorch.strategies import DDPStrategy
 from lightning.pytorch.callbacks import ModelCheckpoint
+from pycg import vis, image
+from pycg import render as pycg_render
 
 import sys
 sys.path.append('.')
 
 from third_party.PartField.partfield.model_trainer_pvcnn_only_demo import Model
 from lib.opt import appearance, self_similarity
-from lib.util import common
+from lib.util import generation, common, render, pointcloud
 import third_party.TRELLIS.trellis.models as models
 
 log.getLogger().setLevel(log.INFO)
@@ -29,18 +32,34 @@ log.basicConfig(level=log.INFO,
 
 def init_args():
     parser = argparse.ArgumentParser(description='GuideFlow3D - 3D Shape Generation')
-    parser.add_argument('--appearance_mesh', type=str, required=True, 
-                        help='Path to appearance mesh (.glb format)')
+    
+    # Guidance mode selection
+    parser.add_argument('--guidance_mode', type=str, required=True, choices=['appearance', 'similarity'],
+                        help='Guidance mode: "appearance" or "similarity"')
     parser.add_argument('--structure_mesh', type=str, required=True,
                         help='Path to structure mesh (.glb format)')
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Output directory for results')
-    parser.add_argument('--appearance_image', type=str, required=True,
-                        help='Path to appearance reference image')
-    parser.add_argument('--appearance_text', type=str, default='',
-                        help='Optional appearance text description')
     parser.add_argument('--convert_yup_to_zup', action='store_true',
                         help='Convert Y-up coordinate system to Z-up')
+    
+    parser.add_argument('--appearance_mesh', type=str, 
+                        help='Path to appearance mesh (.glb format)')
+    parser.add_argument('--appearance_image', type=str,
+                        help='Path to appearance reference image')
+    
+    parser.add_argument('--appearance_text', type=str, default='',
+                        help='Optional appearance text description')
+    
+    args = parser.parse_args()
+    
+    if args.guidance_mode == 'appearance' and not args.appearance_mesh:
+            parser.error("--appearance_mesh is required when using appearance guidance mode")
+    
+    elif args.guidance_mode == 'similarity':
+        if not args.appearance_text:
+            parser.error("--appearance_text is required when using self-similarity guidance mode")
+    
     return parser.parse_args()
 
 def predict_part(obj_path, output_dir):
@@ -87,101 +106,132 @@ def predict_part(obj_path, output_dir):
 def main():
     args = init_args()
     cfg = OmegaConf.load('config/default.yaml')
+    
+    common.ensure_dir(args.output_dir)
+    
+    # Load structure mesh
+    log.info("Loading structure mesh...")
 
-    if not args.appearance_mesh.endswith('.glb') and not args.structure_mesh.endswith('.glb'):
+    if not args.structure_mesh.endswith('.glb'):
         log.error("Meshes must be in .glb format")
         return
-
-    if not osp.exists(args.appearance_mesh):
-        log.error(f"Appearance mesh not found: {args.appearance_mesh}")
-        return
-
-    common.ensure_dir(args.output_dir)
-
-    # Loading Mesh and image
-    log.info("Loading mesh...")
-    app_mesh = trimesh.load(args.appearance_mesh, force='mesh')
-    app_mesh.export(osp.join(args.output_dir, 'app_mesh.glb'))
     
     struct_mesh = trimesh.load(args.structure_mesh, force='mesh')
     struct_mesh.export(osp.join(args.output_dir, 'struct_mesh.glb'))
     
-    # Load appearance image/text
-    app_image = Image.open(args.appearance_image).convert('RGB')
-    app_image.save(osp.join(args.output_dir, 'app_image.png'))
-    app_text = args.appearance_text
-    
-    # # Convert Y-up to Z-up if needed
-    # if args.convert_yup_to_zup:
-    #     app_mesh = pointcloud.convert_mesh_yup_to_zup(app_mesh)
-    #     struct_mesh = pointcloud.convert_mesh_yup_to_zup(struct_mesh)
-    
-    # app_mesh.export(osp.join(args.output_dir, 'app_mesh_zup.glb'))
-    # struct_mesh.export(osp.join(args.output_dir, 'struct_mesh_zup.glb'))
+    # Convert Y-up to Z-up if needed
+    if args.convert_yup_to_zup:
+        struct_mesh = pointcloud.convert_mesh_yup_to_zup(struct_mesh)
+    struct_mesh.export(osp.join(args.output_dir, 'struct_mesh_zup.glb'))
 
-    # # Render views for DinoV2 feature extraction
-    # log.info(f"Rendering appearance mesh for {cfg.num_views} views...")
-    # app_render_dir = osp.join(args.output_dir, 'app_renders')
-    # common.ensure_dir(app_render_dir)
-    # out_renderviews = render.render_all_views(osp.join(args.output_dir, 'app_mesh.glb'), app_render_dir, num_views=cfg.num_views)
-    # if not out_renderviews:
-    #     log.info("Appearance rendering failed!")
-    #     return
+    log.info(f"Rendering structure mesh for {cfg.num_views // 10} views...")
+    struct_render_dir = osp.join(args.output_dir, 'struct_renders')
+    common.ensure_dir(struct_render_dir)
+    out_renderviews = render.render_all_views(osp.join(args.output_dir, 'struct_mesh.glb'), struct_render_dir, num_views=cfg.num_views // 10)
     
-    # log.info(f"Rendering structure mesh for {cfg.num_views // 10} views...")
-    # struct_render_dir = osp.join(args.output_dir, 'struct_renders')
-    # common.ensure_dir(struct_render_dir)
-    # out_renderviews = render.render_all_views(osp.join(args.output_dir, 'struct_mesh.glb'), struct_render_dir, num_views=cfg.num_views // 10)
-    # if not out_renderviews:
-    #     log.info("Structure rendering failed!")
+    voxel_dir = osp.join(args.output_dir, 'voxels')
+    common.ensure_dir(voxel_dir)
+    log.info("Voxelizing structure mesh...")
+    pointcloud.voxelize_mesh(osp.join(struct_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'struct_voxels.ply'))
+    
+    log.info("Extracting Structure Mesh PartField feature planes...")
+    partfield_dir = osp.join(args.output_dir, 'partfield')
+    common.ensure_dir(partfield_dir)
+    predict_part(osp.join(args.output_dir, 'struct_mesh_zup.glb'), partfield_dir)
+    
+    if not out_renderviews:
+        log.info("Structure rendering failed!")
+    
+    if args.guidance_mode == 'appearance':
+        log.info("Running appearance-guided optimization...")
+        
+        # Load appearance mesh
+        log.info("Loading appearance mesh...")
+        
+        if not args.appearance_mesh.endswith('.glb'):
+            log.error("Meshes must be in .glb format")
+            return
+        
+        if not osp.exists(args.appearance_mesh):
+            log.error(f"Appearance mesh not found: {args.appearance_mesh}")
+            return
+        
+        app_mesh = trimesh.load(args.appearance_mesh, force='mesh')
+        app_mesh.export(osp.join(args.output_dir, 'app_mesh.glb'))
+        
+        # Convert Y-up to Z-up if needed
+        if args.convert_yup_to_zup:
+            app_mesh = pointcloud.convert_mesh_yup_to_zup(app_mesh)
+        app_mesh.export(osp.join(args.output_dir, 'app_mesh_zup.glb'))
+        
+        # Load appearance image
+        log.info("Loading appearance image...")
+        if args.appearance_image:
+            app_image = Image.open(args.appearance_image).convert('RGB')
+            app_image.save(osp.join(args.output_dir, 'app_image.png'))
+        else:
+            mesh = vis.from_file(osp.join(args.output_dir, 'app_mesh.glb'), load_obj_textures=True)
+            mesh.paint_uniform_color([0.5, 0.5, 0.5])
+            scene = pycg_render.Scene(up_axis='+Y')
+            scene.add_object(mesh)
+            scene.quick_camera(w=512, h=512, pitch_angle=30, plane_angle=-45.0, fov=40)
+            pycg_render.ThemeDiffuseShadow(None, sun_tilt_right=0.0, sun_tilt_back=0.0, sun_angle=60.0).apply_to(scene)
+            rendering = scene.render_blender(quality=512)
+            rendering = image.alpha_compositing(rendering, image.solid(rendering.shape[1], rendering.shape[0]))
+            image.write(osp.join(args.output_dir, 'app_image.png'), rendering)
+        
+        # Render views for DinoV2 feature extraction
+        log.info(f"Rendering appearance mesh for {cfg.num_views} views...")
+        app_render_dir = osp.join(args.output_dir, 'app_renders')
+        common.ensure_dir(app_render_dir)
+        out_renderviews = render.render_all_views(osp.join(args.output_dir, 'app_mesh.glb'), app_render_dir, num_views=cfg.num_views)
+        if not out_renderviews:
+            log.info("Appearance rendering failed!")
+            return
+        
+        # Voxelise mesh
+        log.info("Voxelizing appearance mesh...")
+        pointcloud.voxelize_mesh(osp.join(app_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'app_voxels.ply'))
+        
+        # Extract DinoV2 Features
+        log.info("Extracting DinoV2 features...")
+        dinov2_model = torch.hub.load(cfg.dinov2_repo, cfg.feature_name)
+        dinov2_model.eval().cuda()
+        transform = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        
+        common.ensure_dir(osp.join(args.output_dir, 'features', cfg.feature_name))
+        generation.extract_feature(args.output_dir, dinov2_model, transform)
+        torch.cuda.empty_cache()
+        
+        del dinov2_model
+        gc.collect() # Free up memory
+        
+        # Extract SLAT Latent
+        log.info("Extracting SLAT latent...")
+        encoder = models.from_pretrained(cfg.enc_pretrained).eval().cuda()
+        
+        common.ensure_dir(osp.join(args.output_dir, 'latents', cfg.latent_name))
+        generation.get_latent(args.output_dir, cfg.feature_name, cfg.latent_name, encoder)
 
-    # # Voxelise mesh
-    # voxel_dir = osp.join(args.output_dir, 'voxels')
-    # common.ensure_dir(voxel_dir)
-    # log.info("Voxelizing mesh...")
-    # pointcloud.voxelize_mesh(osp.join(app_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'app_voxels.ply'))
-    # pointcloud.voxelize_mesh(osp.join(struct_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'struct_voxels.ply'))
+        del encoder
+        gc.collect() # Free up memory
+        
+        # Extract PartField features for appearance mesh
+        log.info("Extracting Appearance Mesh PartField feature planes...")
+        predict_part(osp.join(args.output_dir, 'app_mesh_zup.glb'), partfield_dir)
+    
+        # Appearance Optimization
+        appearance.optimize_appearance(cfg, args.output_dir)
+    
+    elif args.guidance_mode == 'similarity':
+        log.info("Running similarity-guided optimization...")
+        app_text = args.appearance_text
 
-    # Extract DinoV2 Features
-    # log.info("Extracting DinoV2 features...")
-    # dinov2_model = torch.hub.load(cfg.dinov2_repo, cfg.feature_name)
-    # dinov2_model.eval().cuda()
-    # transform = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        # Self-Similarity Optimization
+        self_similarity.optimize_self_similarity(cfg, app_text, args.output_dir)
     
-    # common.ensure_dir(osp.join(args.output_dir, 'features', cfg.feature_name))
-    # generation.extract_feature(args.output_dir, dinov2_model, transform)
-    # torch.cuda.empty_cache()
-    
-    # del dinov2_model
-    # gc.collect() # Free up memory
-    
-    # # assert False
-    
-    # # Extract SLAT Latent
-    # log.info("Extracting SLAT latent...")
-    # encoder = models.from_pretrained(cfg.enc_pretrained).eval().cuda()
-    
-    # common.ensure_dir(osp.join(args.output_dir, 'latents', cfg.latent_name))
-    # generation.get_latent(args.output_dir, cfg.feature_name, cfg.latent_name, encoder)
-
-    # del encoder
-    # gc.collect() # Free up memory
-    
-    # TODO: PartField Feature Plane Extraction
-    # log.info("Extracting PartField feature planes...")
-
-    # partfield_dir = osp.join(args.output_dir, 'partfield')
-    # common.ensure_dir(partfield_dir)
-    # predict_part(osp.join(args.output_dir, 'app_mesh_zup.glb'), partfield_dir)
-    # predict_part(osp.join(args.output_dir, 'struct_mesh_zup.glb'), partfield_dir)
-
-    # assert False
-    
-    # TODO: Appearance Optimization
-    appearance.optimize_appearance(cfg, args.output_dir)
-
-    # TODO: Self-Similarity Optimization
-    # self_similarity.optimize_self_similarity(args.output_dir, app_text, cfg)
+    else:
+        raise NotImplementedError(f"Guidance mode {args.guidance_mode} not implemented.")
 
 if __name__ == "__main__":
     main()

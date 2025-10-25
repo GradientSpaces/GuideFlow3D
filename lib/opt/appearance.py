@@ -128,8 +128,7 @@ def optimize_appearance(cfg, output_dir):
 
             if total_loss < best_loss:
                 best_loss = total_loss.item()
-        
-        feats = struct_feats_params.detach() * std + mean
+                feats = struct_feats_params.detach() * std + mean
 
     # Decode SLAT
     log.info("Decoding output SLAT...")

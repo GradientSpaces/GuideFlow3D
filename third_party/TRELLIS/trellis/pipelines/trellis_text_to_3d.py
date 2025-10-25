@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from transformers import CLIPTextModel, AutoTokenizer
-import open3d as o3d
+import open3d_pycg as o3d
 from .base import Pipeline
 from . import samplers
 from ..modules import sparse as sp

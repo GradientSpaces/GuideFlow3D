@@ -1,5 +1,5 @@
 from typing import *
-import open3d as o3d
+import open3d_pycg as o3d
 from contextlib import contextmanager
 import torch
 import torch.nn as nn

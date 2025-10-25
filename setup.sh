@@ -43,3 +43,10 @@ pip install mesh2sdf tetgen pymeshlab plyfile einops libigl polyscope potpourri3
 pip install torch-scatter -f https://data.pyg.org/whl/torch-2.5.0+cu124.html
 sudo apt install libx11-6 libgl1 libxrender1
 pip install vtk
+
+# python-pycg
+pip install -U 'python-pycg[all]'
+
+# numpy version issue
+pip install tetgen==0.6.4
+pip install numpy==1.26.4

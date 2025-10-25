@@ -7,7 +7,7 @@ import pandas as pd
 from easydict import EasyDict as edict
 from functools import partial
 import numpy as np
-import open3d as o3d
+import open3d_pycg as o3d
 import utils3d
 
 

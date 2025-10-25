@@ -1,7 +1,7 @@
 import numpy as np
 import trimesh
 import utils3d
-import open3d as o3d
+import open3d_pycg as o3d
 
 def convert_mesh_yup_to_zup(mesh):
     mesh.vertices = mesh.vertices @ np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])

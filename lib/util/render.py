@@ -15,10 +15,7 @@ def _install_blender():
         os.system(f'tar -xvf {BLENDER_INSTALLATION_PATH}/blender-3.0.1-linux-x64.tar.xz -C {BLENDER_INSTALLATION_PATH}')
 
 def render_all_views(file_path, output_folder, num_views=150):
-    # install blender
-    print('Checking blender...', flush=True)
     _install_blender()
-    
     # Build camera {yaw, pitch, radius, fov}
     yaws = []
     pitchs = []
@@ -32,7 +29,7 @@ def render_all_views(file_path, output_folder, num_views=150):
     views = [{'yaw': y, 'pitch': p, 'radius': r, 'fov': f} for y, p, r, f in zip(yaws, pitchs, radius, fov)]
     
     args = [
-        BLENDER_PATH, '-b', '-P', os.path.join(os.getcwd(), 'third_party/TRELLIS/dataset_toolkits', 'blender_script', 'render.py'),
+        os.environ['BLENDER_HOME'], '-b', '-P', os.path.join(os.getcwd(), 'third_party/TRELLIS/dataset_toolkits', 'blender_script', 'render.py'),
         '--',
         '--views', json.dumps(views),
         '--object', os.path.expanduser(file_path),

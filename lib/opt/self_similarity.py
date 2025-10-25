@@ -33,7 +33,7 @@ def optimize_self_similarity(cfg, app_text, output_dir):
     struct_coords = torch.cat([zeros, struct_coords], dim=1)
     
     # Load partfield planes
-    path = osp.join(output_dir, "struct_part_feat_zup_0_batch_part_plane.npy")
+    path = osp.join(output_dir, "partfield", "part_feat_struct_mesh_zup_batch_part_plane.npy")
     struct_part_planes = torch.from_numpy(np.load(path, allow_pickle=True)).cuda()
 
     struct_labels = partfield.cluster_geoms(struct_coords, struct_part_planes, num_clusters=cfg.sim_guidance.num_part_clusters)

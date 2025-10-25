@@ -1,0 +1,37 @@
+# dinov2
+dinov2_repo: "facebookresearch/dinov2"
+feature_name: "dinov2_vitl14_reg"
+
+# slat
+enc_pretrained: "JeffreyXiang/TRELLIS-image-large/ckpts/slat_enc_swin8_B_64l8_fp16"
+latent_name: "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16"
+
+# render
+num_views: 150
+
+# trellis
+trellis_img_model_name: "JeffreyXiang/TRELLIS-image-large"
+trellis_text_model_name: "JeffreyXiang/TRELLIS-text-large"
+flow_model_in_channels: 8
+
+# appearance guidance
+app_guidance:
+  num_part_clusters: 30
+  steps: 300
+  learning_rate: 5e-4
+  loss_weight: 10.0
+  rescale_t: 3.0
+  cfg_strength: 5.0
+  cfg_interval: [0.5, 1.0]
+
+# self-similarity guidance
+sim_guidance:
+  num_part_clusters: 10
+  steps: 300
+  learning_rate: 5e-4
+  loss_weight: 1.0
+  rescale_t: 3.0
+  cfg_strength: 7.5
+  cfg_interval: [0.5, 9.5]
+
+log_every: 100

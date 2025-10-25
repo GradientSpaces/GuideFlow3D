@@ -1,0 +1,88 @@
+seed: 0
+output_dir: "results"
+result_name: "demo"
+
+triplet_sampling: "random"
+load_original_mesh: false
+
+num_pos: 64
+num_neg_random: 256
+num_neg_hard_pc: 128
+num_neg_hard_emb: 128
+
+vertex_feature: false  # if true, sample feature on vertices; if false, sample feature on faces
+n_point_per_face: 1000
+n_sample_each: 10000
+preprocess_mesh: false
+
+regress_2d_feat: false
+
+is_pc: false
+
+cut_manifold: false
+remesh_demo: false
+correspondence_demo: false
+
+save_every_epoch: 10
+training_epochs: 30
+continue_training: false
+
+continue_ckpt: models/model_objaverse.ckpt
+epoch_selected: "epoch=50.ckpt"
+
+triplane_resolution: 128
+triplane_channels_low: 128
+triplane_channels_high: 512
+lr: 1.0e-3
+train: true
+test: false
+
+inference_save_pred_sdf_to_mesh: true
+inference_save_feat_pca: true
+name: "test"
+test_subset: false
+test_corres: false
+test_partobjaversetiny: false
+
+dataset:
+  type: "Mix"
+  data_path: "objaverse_data"
+  train_batch_size: 1
+  val_batch_size: 1
+  train_num_workers: 8
+  val_num_workers: 32
+  all_files: []  # only used for correspondence demo
+
+voxel2triplane:
+  transformer_dim: 1024
+  transformer_layers: 6
+  transformer_heads: 8
+  triplane_low_res: 32
+  triplane_high_res: 256
+  triplane_dim: 64
+  normalize_vox_feat: false
+
+loss:
+  triplet: 1.0
+  sdf: 1.0
+  feat: 10.0
+  l1: 0.0
+
+use_pvcnn: false
+use_pvcnnonly: true
+
+pvcnn:
+  point_encoder_type: 'pvcnn'
+  use_point_scatter: true
+  z_triplane_channels: 256
+  z_triplane_resolution: 128
+  unet_cfg:
+    depth: 3
+    enabled: true
+    rolled: true
+    use_3d_aware: true
+    start_hidden_channels: 32
+    use_initial_conv: false
+
+use_2d_feat: false
+inference_metrics_only: false

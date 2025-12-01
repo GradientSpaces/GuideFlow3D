@@ -1,11 +1,12 @@
 import os.path as osp
+from PIL import Image
 import numpy as np
 import torch
 import utils3d
 import logging
 
 import third_party.TRELLIS.trellis.modules.sparse as sp
-from third_party.TRELLIS.trellis.pipelines import TrellisTextTo3DPipeline
+from third_party.TRELLIS.trellis.pipelines import TrellisImageTo3DPipeline, TrellisTextTo3DPipeline
 from lib.util import generation, partfield
 
 # Global logger
@@ -18,10 +19,15 @@ def attn_cosine_sim(x, eps=1e-08):
     sim_matrix = (x @ x.permute(0, 2, 1)) / factor
     return sim_matrix
 
-def optimize_self_similarity(cfg, app_text, output_dir):
+def optimize_self_similarity(cfg, app, app_type, output_dir):
     log.info("Starting self-similarity optimization...")
     
-    generation_pipeline = TrellisTextTo3DPipeline.from_pretrained(cfg.trellis_text_model_name)
+    if app_type == 'image':
+        generation_pipeline = TrellisImageTo3DPipeline.from_pretrained(cfg.trellis_img_model_name)
+        app = Image.open(osp.join(output_dir, 'app_image.png')).convert('RGB')
+        app = generation_pipeline.preprocess_image(app)
+    else:
+        generation_pipeline = TrellisTextTo3DPipeline.from_pretrained(cfg.trellis_text_model_name)
     generation_pipeline.cuda()
     
     # Load Structure Data
@@ -49,16 +55,26 @@ def optimize_self_similarity(cfg, app_text, output_dir):
     best_loss = float('inf')
     feats = None
     
-    cond = generation_pipeline.get_cond([app_text])
+    cond = generation_pipeline.get_cond([app])
     
     flow_model = generation_pipeline.models['slat_flow_model']
-    sampler_params={
-        "cfg_strength": cfg.sim_guidance.cfg_strength,
-        "cfg_interval": cfg.sim_guidance.cfg_interval,
-    }
+    
+    if app_type == 'image':
+        sampler_params = {
+            "cfg_strength": cfg.img_model.cfg_strength,
+            "cfg_interval": cfg.img_model.cfg_interval,
+        }
+        rescale_t = cfg.img_model.rescale_t
+    
+    else:
+        sampler_params = {
+            "cfg_strength": cfg.text_model.cfg_strength,
+            "cfg_interval": cfg.text_model.cfg_interval,
+        }
+        rescale_t = cfg.text_model.rescale_t
 
     t_seq = np.linspace(1, 0, cfg.sim_guidance.steps + 1)
-    t_seq = cfg.sim_guidance.rescale_t * t_seq / (1 + (cfg.sim_guidance.rescale_t - 1) * t_seq)
+    t_seq = rescale_t * t_seq / (1 + (rescale_t - 1) * t_seq)
     t_pairs = list((t_seq[i], t_seq[i + 1]) for i in range(cfg.sim_guidance.steps))
     
     std = torch.tensor(generation_pipeline.slat_normalization['std'])[None].cuda()

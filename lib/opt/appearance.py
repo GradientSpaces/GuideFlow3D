@@ -64,13 +64,14 @@ def optimize_appearance(cfg, output_dir):
 
     flow_model = generation_pipeline.models['slat_flow_model']
 
-    sampler_params={
-        "cfg_strength": cfg.app_guidance.cfg_strength,
-        "cfg_interval": cfg.app_guidance.cfg_interval,
-    }
+    sampler_params = {
+            "cfg_strength": cfg.img_model.cfg_strength,
+            "cfg_interval": cfg.img_model.cfg_interval,
+        }
+    rescale_t = cfg.img_model.rescale_t
 
     t_seq = np.linspace(1, 0, cfg.app_guidance.steps + 1)
-    t_seq = cfg.app_guidance.rescale_t * t_seq / (1 + (cfg.app_guidance.rescale_t - 1) * t_seq)
+    t_seq = rescale_t * t_seq / (1 + (rescale_t - 1) * t_seq)
     t_pairs = list((t_seq[i], t_seq[i + 1]) for i in range(cfg.app_guidance.steps))
 
     std = torch.tensor(generation_pipeline.slat_normalization['std'])[None].cuda()

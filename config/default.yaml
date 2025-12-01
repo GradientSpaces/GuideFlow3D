@@ -14,15 +14,22 @@ trellis_img_model_name: "JeffreyXiang/TRELLIS-image-large"
 trellis_text_model_name: "JeffreyXiang/TRELLIS-text-large"
 flow_model_in_channels: 8
 
+img_model:
+  rescale_t: 3.0
+  cfg_strength: 5.0
+  cfg_interval: [0.5, 1.0]
+
+text_model:
+  rescale_t: 3.0
+  cfg_strength: 7.5
+  cfg_interval: [0.5, 9.5]
+
 # appearance guidance
 app_guidance:
   num_part_clusters: 30
   steps: 300
   learning_rate: 5e-4
   loss_weight: 10.0
-  rescale_t: 3.0
-  cfg_strength: 5.0
-  cfg_interval: [0.5, 1.0]
 
 # self-similarity guidance
 sim_guidance:
@@ -30,8 +37,5 @@ sim_guidance:
   steps: 300
   learning_rate: 5e-4
   loss_weight: 1.0
-  rescale_t: 3.0
-  cfg_strength: 7.5
-  cfg_interval: [0.5, 9.5]
 
 log_every: 100

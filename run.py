@@ -45,9 +45,9 @@ def init_args():
     
     parser.add_argument('--appearance_mesh', type=str, 
                         help='Path to appearance mesh (.glb format)')
+    
     parser.add_argument('--appearance_image', type=str,
                         help='Path to appearance reference image')
-    
     parser.add_argument('--appearance_text', type=str, default='',
                         help='Optional appearance text description')
     
@@ -57,8 +57,11 @@ def init_args():
             parser.error("--appearance_mesh is required when using appearance guidance mode")
     
     elif args.guidance_mode == 'similarity':
-        if not args.appearance_text:
-            parser.error("--appearance_text is required when using self-similarity guidance mode")
+        if args.appearance_text and args.appearance_image:
+            parser.error("Provide either --appearance_image or --appearance_text for similarity guidance, not both.")
+
+        if not args.appearance_text and not args.appearance_image:
+            parser.error("Provide either --appearance_image or --appearance_text for similarity guidance.")
     
     return parser.parse_args()
 
@@ -225,10 +228,23 @@ def main():
     
     elif args.guidance_mode == 'similarity':
         log.info("Running similarity-guided optimization...")
-        app_text = args.appearance_text
+
+        if args.appearance_image:
+            app_type = 'image'
+            app = args.appearance_image
+
+            app_image = Image.open(args.appearance_image).convert('RGB')
+            app_image.save(osp.join(args.output_dir, 'app_image.png'))
+
+        elif args.appearance_text:
+            app_type = 'text'
+            app = args.appearance_text
+        
+        log.info(f"Using {app_type} for self-similarity guidance...")
+        
 
         # Self-Similarity Optimization
-        self_similarity.optimize_self_similarity(cfg, app_text, args.output_dir)
+        self_similarity.optimize_self_similarity(cfg, app, app_type, args.output_dir)
     
     else:
         raise NotImplementedError(f"Guidance mode {args.guidance_mode} not implemented.")

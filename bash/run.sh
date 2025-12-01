@@ -23,26 +23,34 @@ install_blender() {
 install_blender
 
 # Appearance Guidance (with rendered image)
-# python run.py \
-#   --guidance_mode appearance \
-#   --appearance_mesh examples/B07QC84LP1.glb \
-#   --structure_mesh examples/example1.glb \
-#   --output_dir outputs/experiment1 \
-#   --convert_yup_to_zup \
+python run.py \
+  --guidance_mode appearance \
+  --appearance_mesh examples/B07QC84LP1.glb \
+  --structure_mesh examples/example1.glb \
+  --output_dir outputs/experiment1 \
+  --convert_yup_to_zup \
 
 # # Appearance Guidance
-# python run.py \
-#   --guidance_mode appearance \
-#   --appearance_mesh examples/B07QC84LP1.glb \
-#   --structure_mesh examples/example1.glb \
-#   --output_dir outputs/experiment2 \
-#   --appearance_image examples/B07QC84LP1_orig.png \
-#   --convert_yup_to_zup
+python run.py \
+  --guidance_mode appearance \
+  --appearance_mesh examples/B07QC84LP1.glb \
+  --structure_mesh examples/example1.glb \
+  --output_dir outputs/experiment2 \
+  --appearance_image examples/B07QC84LP1_orig.png \
+  --convert_yup_to_zup
 
-# Similarity Guidance
+# Similarity Guidance (with text prompt)
 python run.py \
   --guidance_mode similarity \
   --structure_mesh examples/example1.glb \
   --output_dir outputs/experiment3 \
   --appearance_text "A light-colored wooden chair with a straight-back design, cushioned rectangular backrest and seat in light beige, slightly outward back legs, and tapered front legs." \
+  --convert_yup_to_zup
+
+# Similarity Guidance (with reference image)
+python run.py \
+  --guidance_mode similarity \
+  --structure_mesh examples/example1.glb \
+  --output_dir outputs/experiment4 \
+  --appearance_image examples/B07QC84LP1_orig.png \
   --convert_yup_to_zup

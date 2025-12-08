@@ -138,5 +138,5 @@ def decode_slat(generation_pipeline, feats, coords, out_meshpath, out_gspath):
     mesh_textured.export(out_meshpath)
 
     # Render the outputs
-    video = render_utils.render_video(outputs['gaussian'][0])['color']
+    video = render_utils.render_video(outputs['gaussian'][0], bg_color=[255, 255, 255])['color']
     imageio.mimsave(out_gspath, video, fps=30)

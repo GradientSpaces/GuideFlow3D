@@ -56,6 +56,7 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
     feats = None
     
     cond = generation_pipeline.get_cond([app])
+    
     flow_model = generation_pipeline.models['slat_flow_model']
     
     if app_type == 'image':

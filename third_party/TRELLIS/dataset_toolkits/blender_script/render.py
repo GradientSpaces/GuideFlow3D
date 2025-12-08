@@ -33,7 +33,7 @@ EXT = {
     'TARGA': 'tga'
 }
 
-def init_render(engine='CYCLES', resolution=512, geo_mode=False):
+def init_render(engine='CYCLES', resolution=512, geo_mode=False, threads=None):
     bpy.context.scene.render.engine = engine
     bpy.context.scene.render.resolution_x = resolution
     bpy.context.scene.render.resolution_y = resolution
@@ -41,6 +41,11 @@ def init_render(engine='CYCLES', resolution=512, geo_mode=False):
     bpy.context.scene.render.image_settings.file_format = 'PNG'
     bpy.context.scene.render.image_settings.color_mode = 'RGBA'
     bpy.context.scene.render.film_transparent = True
+    bpy.context.scene.render.use_persistent_data = True
+    
+    if threads is not None and threads > 0:
+        bpy.context.scene.render.threads_mode = 'FIXED'
+        bpy.context.scene.render.threads = threads
     
     bpy.context.scene.cycles.device = 'GPU'
     bpy.context.scene.cycles.samples = 128 if not geo_mode else 1
@@ -51,9 +56,40 @@ def init_render(engine='CYCLES', resolution=512, geo_mode=False):
     bpy.context.scene.cycles.transparent_max_bounces = 3 if not geo_mode else 0
     bpy.context.scene.cycles.transmission_bounces = 3 if not geo_mode else 1
     bpy.context.scene.cycles.use_denoising = True
+    # bpy.context.scene.cycles.denoiser = 'OPTIX'
+    bpy.context.scene.cycles.denoiser = 'OPENIMAGEDENOISE'
+    bpy.context.scene.cycles.noise_threshold = 0.05
+
+    # Force single tile if possible to maximize GPU throughput for small images
+    if hasattr(bpy.context.scene.cycles, 'use_auto_tile'):
+         bpy.context.scene.cycles.use_auto_tile = False
+    if hasattr(bpy.context.scene.cycles, 'tile_size'):
+         bpy.context.scene.cycles.tile_size = resolution
         
-    bpy.context.preferences.addons['cycles'].preferences.get_devices()
-    bpy.context.preferences.addons['cycles'].preferences.compute_device_type = 'CUDA'
+    # Device setup
+    cycles_prefs = bpy.context.preferences.addons['cycles'].preferences
+    cycles_prefs.get_devices()
+    
+    cuda_devices = [d for d in cycles_prefs.devices if d.type == 'CUDA']
+    optix_devices = [d for d in cycles_prefs.devices if d.type == 'OPTIX']
+    
+    # Check environment variable to optionally disable GPU
+    use_gpu = (len(cuda_devices) > 0 or len(optix_devices) > 0) and os.environ.get("CUDA_VISIBLE_DEVICES") != "-1"
+
+    if use_gpu:
+        bpy.context.scene.cycles.device = 'GPU'
+        if len(optix_devices) > 0:
+            cycles_prefs.compute_device_type = 'OPTIX'
+        else:
+            cycles_prefs.compute_device_type = 'CUDA'
+        
+        for device in cycles_prefs.devices:
+             if device.type in {'CUDA', 'OPTIX'}:
+                 device.use = True
+        print(f"[init_render] Using GPU: {cycles_prefs.compute_device_type}")
+    else:
+        bpy.context.scene.cycles.device = 'CPU'
+        print("[init_render] GPU not found or disabled, using CPU.")
     
 def init_nodes(save_depth=False, save_normal=False, save_albedo=False, save_mist=False):
     if not any([save_depth, save_normal, save_albedo, save_mist]):
@@ -417,7 +453,7 @@ def main(arg):
     os.makedirs(arg.output_folder, exist_ok=True)
     
     # Initialize context
-    init_render(engine=arg.engine, resolution=arg.resolution, geo_mode=arg.geo_mode)
+    init_render(engine=arg.engine, resolution=arg.resolution, geo_mode=arg.geo_mode, threads=arg.threads)
     outputs, spec_nodes = init_nodes(
         save_depth=arg.save_depth,
         save_normal=arg.save_normal,
@@ -521,6 +557,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_mist', action='store_true', help='Save the mist distance maps.')
     parser.add_argument('--split_normal', action='store_true', help='Split the normals of the mesh.')
     parser.add_argument('--save_mesh', action='store_true', help='Save the mesh as a .ply file.')
+    parser.add_argument('--threads', type=int, default=None, help='Number of CPU threads to use.')
     argv = sys.argv[sys.argv.index("--") + 1:]
     args = parser.parse_args(argv)
 

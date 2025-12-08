@@ -1,6 +1,7 @@
 import os.path as osp
 from PIL import Image
 import numpy as np
+from PIL import Image
 import torch
 import utils3d
 import logging
@@ -56,7 +57,10 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
     feats = None
     
     cond = generation_pipeline.get_cond([app])
+<<<<<<< Updated upstream
     
+=======
+>>>>>>> Stashed changes
     flow_model = generation_pipeline.models['slat_flow_model']
     
     if app_type == 'image':

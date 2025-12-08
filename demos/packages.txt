@@ -1,0 +1,7 @@
+xvfb
+libx11-6 
+libgl1 
+libxrender1
+libxi6 
+libxkbcommon-x11-0 
+libsm6

@@ -1,7 +1,6 @@
 import os.path as osp
 from PIL import Image
 import numpy as np
-from PIL import Image
 import torch
 import utils3d
 import logging

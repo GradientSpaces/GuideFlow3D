@@ -125,12 +125,12 @@ bash bash/run.sh
 ## 🙏 Acknowledgments
 
 - 🧊 **[TRELLIS](https://github.com/microsoft/TRELLIS)** — structured 3D latents, encoders, rendering.
-- 🎛️ **[SpaceControl](https://github.com/spacecontrol3d/spacecontrol)** ([project](https://spacecontrol3d.github.io/)) — Viser GUI ideas.
+- 🎛️ **[SpaceControl](https://github.com/spacecontrol3d/spacecontrol)** — Viser GUI ideas.
 
 ## 📜 Citation
 
 ```bibtex
-@inproceedings{sayandsarkar_2025_guideflow3d,
+@inproceedings{sdsarkar_guideflow3d_2025,
       author = {Deb Sarkar, Sayan and Stekovic, Sinisa and Lepetit, Vincent and Armeni, Iro},
       title = {GuideFlow3D: Optimization-Guided Rectified Flow For 3D Appearance Transfer},
       booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},

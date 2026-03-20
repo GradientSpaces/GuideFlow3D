@@ -1,29 +1,41 @@
-# GuideFlow3D
+<p align="center">
+  <h2 align="center"> GuideFlow3D: Optimization-Guided Rectified Flow For Appearance Transfer </h2>
+  <p align="center">
+    <a href="https://sayands.github.io/">Sayan Deb Sarkar</a><sup> 1 </sup>
+    .
+    <a href="https://vevenom.github.io/">Sinisa Stekovic</a><sup> 2 </sup>
+    .
+    <a href="https://vincentlepetit.github.io/">Vincent Lepetit</a><sup> 2 </sup>
+    .
+    <a href="https://ir0.github.io/">Iro Armeni</a><sup>1</sup>
+  </p>
+  <p align="center"> <strong>Neural Information Processing Systems (NeurIPS) 2025</strong></p>
+  <p align="center">
+    <sup> 1 </sup>Stanford University · <sup> 2 </sup>ENPC, IP Paris
+  </p>
+  <h3 align="center">
 
-*Optimization-Guided Rectified Flow For 3D Appearance Transfer*
-
-[Sayan Deb Sarkar](https://sayands.github.io/)<sup>1</sup>,
-[Sinisa Stekovic](https://vevenom.github.io/)<sup>2</sup>,
-[Vincent Lepetit](https://vincentlepetit.github.io/)<sup>2</sup>,
-[Iro Armeni](https://ir0.github.io/)<sup>1</sup>
-
-**NeurIPS 2025** · <sup>1</sup>Stanford University · <sup>2</sup>ENPC, IP Paris
-
-### [Paper (arXiv)](https://arxiv.org/abs/2510.16136) · [Project Page](https://sayands.github.io/guideflow3d) · [Code](https://github.com/sayands/guideflow3d)
-
-[![arXiv](https://img.shields.io/badge/arXiv-blue?logo=arxiv&color=%23B31B1B)](https://arxiv.org/abs/2510.16136)
-[![Project Page](https://img.shields.io/badge/Project_Page-GuideFlow3D-blue)](https://sayands.github.io/guideflow3d)
-[![License](https://img.shields.io/badge/License-Apache--2.0-929292)](https://www.apache.org/licenses/LICENSE-2.0)
+  [![arXiv](https://img.shields.io/badge/arXiv-blue?logo=arxiv&color=%23B31B1B)](https://arxiv.org/abs/2510.16136)
+ [![ProjectPage](https://img.shields.io/badge/Project_Page-GuideFlow3D-blue)](https://sayands.github.io/guideflow3d)
+ [![License](https://img.shields.io/badge/License-Apache--2.0-929292)](https://www.apache.org/licenses/LICENSE-2.0)
+ <div align="center"></div>
+</p>
 
 <p align="center">
-  <img src="https://github.com/sayands/guideflow3d/blob/main/assets/guideflow3d_teaser.gif" width="100%" alt="GuideFlow3D teaser">
+  <a href="">
+    <img src="https://github.com/sayands/guideflow3d/blob/main/assets/guideflow3d_teaser.gif" width="100%">
+  </a>
 </p>
+
+<h5 align="left">
+<em>TL;DR:</em> 3D appearance transfer pipeline robust to strong geometric variations between objects.
+</h5>
+
+## 📃 Abstract
 
 Transferring appearance to 3D assets using different representations of the appearance object—such as images or text—has garnered interest due to its wide range of applications in industries like gaming, augmented reality, and digital content creation. However, state-of-the-art methods still fail when the geometry between the input and appearance objects is significantly different. A straightforward approach is to directly apply a 3D generative model, but we show that this ultimately fails to produce appealing results. Instead, we propose a principled approach inspired by universal guidance. Given a pretrained rectified flow model conditioned on image or text, our training-free method interacts with the sampling process by periodically adding guidance. This guidance can be modeled as a differentiable loss function, and we experiment with two different types of guidance including part-aware losses for appearance and self-similarity. Our experiments show that our approach successfully transfers texture and geometric details to the input 3D asset, outperforming baselines both qualitatively and quantitatively. We also show that traditional metrics are not suitable for evaluating the task due to their inability of focusing on local details and comparing dissimilar inputs, in absence of ground truth data. We thus evaluate appearance transfer quality with a GPT-based system objectively ranking outputs, ensuring robust and human-like assessment, as further confirmed by our user study. Beyond showcased scenarios, our method is general and could be extended to different types of diffusion models and guidance functions.
 
-_**TL;DR:** 3D appearance transfer pipeline robust to strong geometric variations between objects._
-
-_**See the [project page](https://sayands.github.io/guideflow3d) for videos, figures, and more.**_
+_**Check out our [Project Page](https://sayands.github.io/guideflow3d) for more examples and interactive demos!**_
 
 ## 📰 News
 

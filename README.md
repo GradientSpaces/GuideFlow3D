@@ -39,8 +39,8 @@ _**Check out our [Project Page](https://sayands.github.io/guideflow3d) for more 
 
 ## 📰 News
 
-- **[2026-03]** Reference **code** and interactive **Viser** demo released — see **Installation** & **Usage** below.
-- **[2025-09]** GuideFlow3D accepted to **NeurIPS 2025** — see you in San Diego.
+- ![](https://img.shields.io/badge/New!-8A2BE2) **[2026-03]** Reference **code** and interactive **Viser** demo released — see **Installation** & **Usage** below.
+- **[2025-09]** 🎉🥳 GuideFlow3D **accepted** to **NeurIPS 2025**! See you in San Diego 🔥✨
 
 ## 📦 Installation
 

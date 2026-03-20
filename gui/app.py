@@ -317,7 +317,7 @@ with gui["app_folder"]:
 # ── Advanced ───────────────────────────────────────────────────────────────────
 with server.gui.add_folder("Advanced Settings", order=4, expand_by_default=False):
     gui["convert_yup"] = server.gui.add_checkbox(
-        "Convert Y-up → Z-up", initial_value=False
+        "Convert Y-up → Z-up", initial_value=True
     )
     gui["output_dir_text"] = server.gui.add_text(
         "Output Directory",

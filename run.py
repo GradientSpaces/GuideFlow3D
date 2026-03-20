@@ -1,4 +1,3 @@
-from html import parser
 import os.path as osp
 import gc
 import trimesh
@@ -10,6 +9,12 @@ import random
 import numpy as np
 
 import torch
+
+# PyTorch 2.6+ defaults to weights_only=True; PartField checkpoints pickle yacs CfgNode.
+if hasattr(torch.serialization, "add_safe_globals"):
+    import yacs.config
+    torch.serialization.add_safe_globals([yacs.config.CfgNode])
+
 from torchvision import transforms
 from lightning.pytorch import seed_everything, Trainer
 from lightning.pytorch.strategies import DDPStrategy
@@ -54,7 +59,7 @@ def init_args():
     args = parser.parse_args()
     
     if args.guidance_mode == 'appearance' and not args.appearance_mesh:
-            parser.error("--appearance_mesh is required when using appearance guidance mode")
+        parser.error("--appearance_mesh is required when using appearance guidance mode")
     
     elif args.guidance_mode == 'similarity':
         if args.appearance_text and args.appearance_image:
@@ -62,8 +67,8 @@ def init_args():
 
         if not args.appearance_text and not args.appearance_image:
             parser.error("Provide either --appearance_image or --appearance_text for similarity guidance.")
-    
-    return parser.parse_args()
+
+    return args
 
 def predict_part(obj_path, output_dir):
     log.info("Extracting PartField feature planes...")

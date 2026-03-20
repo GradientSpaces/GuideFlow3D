@@ -5,8 +5,11 @@
 outputs/
 examples/
 lightning_logs/
-models/
+weights/
 __pycache__/
+
+.claude/
+.vscode/
 
 # User-specific files
 *.rsuser

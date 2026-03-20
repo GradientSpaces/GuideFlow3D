@@ -1,4 +1,4 @@
-conda create -n guideflow3d python=3.10 -y
+conda create -n guideflow3d python=3.11 -y
 conda activate guideflow3d
 conda init
 
@@ -17,12 +17,12 @@ pip install flash-attn
 # # nvdiffrast
 mkdir -p /tmp/extensions
 git clone https://github.com/NVlabs/nvdiffrast.git /tmp/extensions/nvdiffrast
-pip install /tmp/extensions/nvdiffrast
+pip install --no-build-isolation /tmp/extensions/nvdiffrast
 
 # # # diffoctreerast
 mkdir -p /tmp/extensions
 git clone --recurse-submodules https://github.com/JeffreyXiang/diffoctreerast.git /tmp/extensions/diffoctreerast
-pip install /tmp/extensions/diffoctreerast
+pip install --no-build-isolation /tmp/extensions/diffoctreerast
 
 # # kaolin
 pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4.0_cu121.html
@@ -30,10 +30,10 @@ pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.4
 # mipgaussian
 mkdir -p /tmp/extensions
 git clone https://github.com/autonomousvision/mip-splatting.git /tmp/extensions/mip-splatting
-pip install /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
+pip install --no-build-isolation /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
 
 # spconv
-pip install spconv-cu120 
+pip install spconv-cu126 
 
 # Partfield
 conda install nvidia/label/cuda-12.4.0::cuda -y

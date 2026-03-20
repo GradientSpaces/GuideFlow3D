@@ -4,7 +4,7 @@ from subprocess import call, DEVNULL
 import numpy as np
 
 BLENDER_LINK = 'https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz'
-BLENDER_INSTALLATION_PATH = '/tmp'
+BLENDER_INSTALLATION_PATH = '/home/sayandsarkar/Downloads'
 BLENDER_PATH = f'{BLENDER_INSTALLATION_PATH}/blender-3.0.1-linux-x64/blender'
 
 def _install_blender():

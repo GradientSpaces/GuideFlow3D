@@ -56,9 +56,6 @@ def optimize_appearance(cfg, output_dir):
     optimizer = torch.optim.AdamW(param_list, lr=cfg.app_guidance.learning_rate)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 1)
 
-    best_loss = float('inf')
-    feats = None
-
     image = generation_pipeline.preprocess_image(app_image)
     cond = generation_pipeline.get_cond([image])
 
@@ -127,9 +124,7 @@ def optimize_appearance(cfg, output_dir):
                 message = f"Step: {iteration}, Appearance Loss: {app_loss.item():.4f}, Total Loss: {total_loss.item():.4f}"
                 log.info(message)
 
-            if total_loss < best_loss:
-                best_loss = total_loss.item()
-                feats = struct_feats_params.detach() * std + mean
+        feats = struct_feats_params.detach() * std + mean
 
     # Decode SLAT
     log.info("Decoding output SLAT...")

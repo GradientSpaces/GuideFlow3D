@@ -1,21 +1,42 @@
 import os
 import json
+from pathlib import Path
 from subprocess import call, DEVNULL
 import numpy as np
 
 BLENDER_LINK = 'https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz'
-BLENDER_INSTALLATION_PATH = '/home/sayandsarkar/Downloads'
-BLENDER_PATH = f'{BLENDER_INSTALLATION_PATH}/blender-3.0.1-linux-x64/blender'
+BLENDER_INSTALLATION_PATH = os.environ.get(
+    'BLENDER_INSTALLATION_PATH', str(Path.home() / 'Downloads')
+)
+BLENDER_PATH = os.path.join(
+    BLENDER_INSTALLATION_PATH, 'blender-3.0.1-linux-x64', 'blender'
+)
+
 
 def _install_blender():
-    if not os.path.exists(BLENDER_PATH):
-        os.system('sudo apt-get update')
-        os.system('sudo apt-get install -y libxrender1 libxi6 libxkbcommon-x11-0 libsm6')
-        os.system(f'wget {BLENDER_LINK} -P {BLENDER_INSTALLATION_PATH}')
-        os.system(f'tar -xvf {BLENDER_INSTALLATION_PATH}/blender-3.0.1-linux-x64.tar.xz -C {BLENDER_INSTALLATION_PATH}')
+    if os.path.isfile(BLENDER_PATH):
+        return
+    os.system('sudo apt-get update')
+    os.system('sudo apt-get install -y libxrender1 libxi6 libxkbcommon-x11-0 libsm6')
+    os.system(f'wget {BLENDER_LINK} -P {BLENDER_INSTALLATION_PATH}')
+    os.system(
+        f'tar -xvf {BLENDER_INSTALLATION_PATH}/blender-3.0.1-linux-x64.tar.xz '
+        f'-C {BLENDER_INSTALLATION_PATH}'
+    )
 
 def render_all_views(file_path, output_folder, num_views=150):
     _install_blender()
+    blender_exe = os.environ.get('BLENDER_HOME')
+    if blender_exe:
+        blender_exe = os.path.expanduser(blender_exe)
+    if not blender_exe or not os.path.isfile(blender_exe):
+        blender_exe = BLENDER_PATH
+    if not os.path.isfile(blender_exe):
+        raise FileNotFoundError(
+            "Blender executable not found. Install Blender 3.0.1 (Linux x64), e.g. from "
+            f"{BLENDER_LINK}, extract under {BLENDER_INSTALLATION_PATH}, then set "
+            "BLENDER_HOME to the `blender` binary path (see README)."
+        )
     # Build camera {yaw, pitch, radius, fov}
     yaws = []
     pitchs = []
@@ -29,7 +50,15 @@ def render_all_views(file_path, output_folder, num_views=150):
     views = [{'yaw': y, 'pitch': p, 'radius': r, 'fov': f} for y, p, r, f in zip(yaws, pitchs, radius, fov)]
     
     args = [
-        os.environ['BLENDER_HOME'], '-b', '-P', os.path.join(os.getcwd(), 'third_party/TRELLIS/dataset_toolkits', 'blender_script', 'render.py'),
+        blender_exe,
+        '-b',
+        '-P',
+        os.path.join(
+            os.getcwd(),
+            'third_party/TRELLIS/dataset_toolkits',
+            'blender_script',
+            'render.py',
+        ),
         '--',
         '--views', json.dumps(views),
         '--object', os.path.expanduser(file_path),

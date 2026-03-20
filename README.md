@@ -39,32 +39,61 @@ _**Check out our [Project Page](https://sayands.github.io/guideflow3d) for more 
 
 ## 📰 News
 
+- **[2026-03]** Reference **code** and interactive **Viser** demo released — see **Installation** & **Usage** below.
 - **[2025-09]** GuideFlow3D accepted to **NeurIPS 2025** — see you in San Diego.
-
-## 🚧 Code & data
-
-Code and data are staged for public release; this repository hosts the reference implementation and examples.
 
 ## 📦 Installation
 
-Tested on **Ubuntu 22.04** with **CUDA 12.8** and **PyTorch 2.7.1**. Other stacks may work but are not verified.
+Tested on **Ubuntu 22.04.05 LTS**, **CUDA 12.8**, **PyTorch 2.7.1**.
 
-1. Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda.
-2. From the **repository root**, run:
+1. **Conda:** install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda so `conda` is on your `PATH`. Linux x86_64 (silent install to `~/miniconda3`, then hook your shell):
 
 ```bash
-bash setup.sh
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && bash miniconda.sh -b -p "$HOME/miniconda3" && rm miniconda.sh && "$HOME/miniconda3/bin/conda" init
 ```
 
-[`setup.sh`](setup.sh) creates the `guideflow3d` conda env (Python 3.11), installs PyTorch, and pulls in the rest of the stack (including builds such as flash-attention and nvdiffrast). Expect a long install; `sudo` may be needed for system packages.
+2. From the repo root: `bash setup.sh`
 
-If `conda activate` does not stick after the script, open a new shell and run `conda activate guideflow3d` before calling `run.py` or the GUI.
+**What [`setup.sh`](setup.sh) does:** creates conda env `guideflow3d` (Python 3.11), installs PyTorch and dependencies, and builds or installs compiled packages (e.g. flash-attention, nvdiffrast). It does **not** install Blender or PartField weights — add those under **Setup** below. The install is slow; **`sudo`** may be used for system packages.
+
+### Setup
+
+Extra assets required to run the full pipeline (not installed by `setup.sh`):
+
+**Blender 3.0.1** (Linux x64) — multiview rendering uses the TRELLIS Blender script. Set **`BLENDER_HOME`** to the `blender` executable. If you extract [the 3.0.1 tarball](https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz) under `~/Downloads`:
+
+```bash
+export BLENDER_INSTALLATION_PATH="$HOME/Downloads"   # default in `lib/util/render.py`
+export BLENDER_HOME="$BLENDER_INSTALLATION_PATH/blender-3.0.1-linux-x64/blender"
+```
+
+Add these to your shell or the same session before Python. If the binary is missing, `lib/util/render.py` may download and extract once (needs **`sudo`** and apt deps like [`bash/run.sh`](bash/run.sh)), or run that script’s `install_blender` block once.
+
+**PartField (Objaverse checkpoint)** — `run.py` loads weights from **`weights/model_objaverse.ckpt`** (see [`continue_ckpt`](third_party/PartField/config.yaml) in `third_party/PartField/config.yaml`). Download the **Objaverse** pretrained model from [PartField](https://github.com/nv-tlabs/PartField) (*Pretrained Model* in their README), place **`model_objaverse.ckpt`** in **`weights/`** at the **repository root** (that directory is gitignored). Licensing and download links are described upstream.
+
+**Troubleshooting:** If **`conda activate`** does not apply after `setup.sh`, open a new terminal and run `conda activate guideflow3d`. If Blender is missing, point **`BLENDER_HOME`** at the extracted `blender-3.0.1-linux-x64/blender` binary; set **`BLENDER_INSTALLATION_PATH`** if you did not use `~/Downloads`. If PartField inference fails, confirm **`weights/model_objaverse.ckpt`** exists and matches **`third_party/PartField/config.yaml`**.
 
 ## 💡 Usage
 
-Work from the **repository root** (where `run.py` and `config/` live).
+Work from the **repository root**. We provide sample meshes and images under **[`examples/`](examples/)**.
 
-### Command line — `run.py`
+**Blender:** set **`BLENDER_HOME`** as in **Installation → Setup**.
+
+**PartField:** place the Objaverse checkpoint at **`weights/model_objaverse.ckpt`** as in **Installation → Setup** and [PartField](https://github.com/nv-tlabs/PartField). Required for PartField inside **`run.py`** and the GUI.
+
+### Demo → `python gui/app.py`
+
+To start the web-based interactive demo:
+
+```bash
+python gui/app.py
+```
+
+Open **http://localhost:8080** in your browser ([Viser](https://github.com/nerfstudio-project/viser)). Outputs default to `outputs/gui_run_<id>/`; use **Toggle Structure / Output** to compare output mesh and input structure mesh.
+
+### `run.py` (main script)
+
+[`run.py`](run.py) is the main command-line entry point for the full pipeline. It writes `out_app.glb` or `out_sim.glb` under `--output_dir`, depending on the mode.
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -76,7 +105,7 @@ Work from the **repository root** (where `run.py` and `config/` live).
 | `--appearance_image` | No* | Reference image |
 | `--appearance_text` | No* | Text (similarity mode) |
 
-\* **Similarity:** use **either** `--appearance_text` **or** `--appearance_image`, not both. **Appearance:** `--appearance_mesh` is required; without `--appearance_image`, an image is rendered from the mesh.
+\* **Similarity:** `--appearance_text` **or** `--appearance_image`, not both. **Appearance:** `--appearance_mesh` required; without `--appearance_image`, an image is rendered from the mesh.
 
 ```bash
 python run.py --guidance_mode similarity \
@@ -85,42 +114,18 @@ python run.py --guidance_mode similarity \
   --appearance_text "a wooden chair"
 ```
 
-Artifacts: `out_app.glb` or `out_sim.glb` under `--output_dir` (mode-dependent).
+### `bash/run.sh` (a few examples)
 
-### Batch examples — `bash/run.sh`
-
-[`bash/run.sh`](bash/run.sh) can install Blender on Linux if needed, then runs several example jobs from the repo root:
+[`bash/run.sh`](bash/run.sh) shows a handful of example commands: on Linux it can install Blender if missing, then runs several `run.py` jobs on files in [`examples/`](examples/).
 
 ```bash
 bash bash/run.sh
 ```
-
-Optional env overrides:
-
-```bash
-export BLENDER_INSTALLATION_PATH="$HOME/Downloads"
-export BLENDER_HOME="/path/to/blender-3.0.1-linux-x64/blender"
-bash bash/run.sh
-```
-
-### Interactive GUI — `gui/app.py`
-
-[Viser](https://github.com/nerfstudio-project/viser)-based UI around `run.py` (layout inspired by [SpaceControl](https://github.com/spacecontrol3d/spacecontrol)): load mesh, choose mode, upload / prompt, generate with live logs.
-
-```bash
-python gui/app.py
-```
-
-Open **http://localhost:8080**. Runs write under `outputs/gui_run_<id>/` by default; use **Toggle Structure / Output** to compare with `out_app.glb` / `out_sim.glb`.
 
 ## 🙏 Acknowledgments
 
-- 🧊 We thank the authors of **[TRELLIS](https://github.com/microsoft/TRELLIS)** for structured 3D latents, encoders, and rendering code used in this pipeline.
-- 🎛️ The interactive GUI builds on ideas from **[SpaceControl](https://github.com/spacecontrol3d/spacecontrol)** — see also the **[project page](https://spacecontrol3d.github.io/)**.
-
-## 💬 Contact
-
-Questions: GitHub **Issues** or Sayan Deb Sarkar (**sdsarkar@stanford.edu**).
+- 🧊 **[TRELLIS](https://github.com/microsoft/TRELLIS)** — structured 3D latents, encoders, rendering.
+- 🎛️ **[SpaceControl](https://github.com/spacecontrol3d/spacecontrol)** ([project](https://spacecontrol3d.github.io/)) — Viser GUI ideas.
 
 ## 📜 Citation
 

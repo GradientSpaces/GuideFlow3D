@@ -51,10 +51,7 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
     param_list = [struct_feats_params]
     optimizer = torch.optim.AdamW(param_list, lr=cfg.sim_guidance.learning_rate)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 1)
-    
-    best_loss = float('inf')
-    feats = None
-    
+
     cond = generation_pipeline.get_cond([app])
     
     flow_model = generation_pipeline.models['slat_flow_model']
@@ -122,11 +119,9 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
             if (iteration == 0) or (iteration + 1) % cfg.log_every == 0:
                 message = f"Step: {iteration}, Structure Loss: {struct_loss.item():.4f}, Total Loss: {total_loss.item():.4f}"
                 log.info(message)
-                
-            if total_loss < best_loss:
-                best_loss = total_loss.item()
-                feats = struct_feats_params.detach() * std + mean
-    
+
+        feats = struct_feats_params.detach() * std + mean
+
     # Decode SLAT
     log.info("Decoding output SLAT...")
     out_meshpath = osp.join(output_dir,  'out_sim.glb')

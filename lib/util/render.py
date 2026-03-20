@@ -13,7 +13,7 @@ BLENDER_PATH = os.path.join(
 )
 
 
-def _install_blender():
+def _install_blender() -> None:
     if os.path.isfile(BLENDER_PATH):
         return
     os.system('sudo apt-get update')
@@ -24,7 +24,7 @@ def _install_blender():
         f'-C {BLENDER_INSTALLATION_PATH}'
     )
 
-def render_all_views(file_path, output_folder, num_views=150):
+def render_all_views(file_path: str, output_folder: str, num_views: int = 150, seed: int = 42) -> bool | None:
     _install_blender()
     blender_exe = os.environ.get('BLENDER_HOME')
     if blender_exe:
@@ -38,9 +38,10 @@ def render_all_views(file_path, output_folder, num_views=150):
             "BLENDER_HOME to the `blender` binary path (see README)."
         )
     # Build camera {yaw, pitch, radius, fov}
+    rng = np.random.RandomState(seed)
     yaws = []
     pitchs = []
-    offset = (np.random.rand(), np.random.rand())
+    offset = (rng.rand(), rng.rand())
     for i in range(num_views):
         y, p = sphere_hammersley_sequence(i, num_views, offset)
         yaws.append(y)
@@ -79,7 +80,7 @@ def render_all_views(file_path, output_folder, num_views=150):
 
 PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53]
 
-def radical_inverse(base, n):
+def radical_inverse(base: int, n: int) -> float:
     val = 0
     inv_base = 1.0 / base
     inv_base_n = inv_base
@@ -90,13 +91,13 @@ def radical_inverse(base, n):
         inv_base_n *= inv_base
     return val
 
-def halton_sequence(dim, n):
+def halton_sequence(dim: int, n: int) -> list[float]:
     return [radical_inverse(PRIMES[dim], n) for dim in range(dim)]
 
-def hammersley_sequence(dim, n, num_samples):
+def hammersley_sequence(dim: int, n: int, num_samples: int) -> list[float]:
     return [n / num_samples] + halton_sequence(dim - 1, n)
 
-def sphere_hammersley_sequence(n, num_samples, offset=(0, 0)):
+def sphere_hammersley_sequence(n: int, num_samples: int, offset: tuple[float, float] = (0, 0)) -> list[float]:
     u, v = hammersley_sequence(2, n, num_samples)
     u += offset[0] / num_samples
     v += offset[1]

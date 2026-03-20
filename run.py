@@ -22,9 +22,6 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from pycg import vis, image
 from pycg import render as pycg_render
 
-import sys
-sys.path.append('.')
-
 from third_party.PartField.partfield.model_trainer_pvcnn_only_demo import Model
 from lib.opt import appearance, self_similarity
 from lib.util import generation, common, render, pointcloud
@@ -109,7 +106,8 @@ def predict_part(obj_path, output_dir):
     np.save(f'{output_dir}/part_feat_{uid}_batch_part_plane.npy', part_planes)
     
     del partfield_model
-    gc.collect() # Free up memory
+    gc.collect()
+    torch.cuda.empty_cache()
 
 def main():
     args = init_args()
@@ -140,7 +138,7 @@ def main():
     voxel_dir = osp.join(args.output_dir, 'voxels')
     common.ensure_dir(voxel_dir)
     log.info("Voxelizing structure mesh...")
-    pointcloud.voxelize_mesh(osp.join(struct_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'struct_voxels.ply'))
+    pointcloud.voxelize_mesh(osp.join(struct_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'struct_voxels.ply'), voxel_resolution=cfg.voxel_resolution)
     
     log.info("Extracting Structure Mesh PartField feature planes...")
     partfield_dir = osp.join(args.output_dir, 'partfield')
@@ -199,7 +197,7 @@ def main():
         
         # Voxelise mesh
         log.info("Voxelizing appearance mesh...")
-        pointcloud.voxelize_mesh(osp.join(app_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'app_voxels.ply'))
+        pointcloud.voxelize_mesh(osp.join(app_render_dir, 'mesh.ply'), save_path=osp.join(voxel_dir, 'app_voxels.ply'), voxel_resolution=cfg.voxel_resolution)
         
         # Extract DinoV2 Features
         log.info("Extracting DinoV2 features...")
@@ -208,11 +206,11 @@ def main():
         transform = transforms.Compose([transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
         
         common.ensure_dir(osp.join(args.output_dir, 'features', cfg.feature_name))
-        generation.extract_feature(args.output_dir, dinov2_model, transform)
-        torch.cuda.empty_cache()
+        generation.extract_feature(args.output_dir, dinov2_model, transform, cfg=cfg)
         
         del dinov2_model
-        gc.collect() # Free up memory
+        gc.collect()
+        torch.cuda.empty_cache()
         
         # Extract SLAT Latent
         log.info("Extracting SLAT latent...")
@@ -222,7 +220,8 @@ def main():
         generation.get_latent(args.output_dir, cfg.feature_name, cfg.latent_name, encoder)
 
         del encoder
-        gc.collect() # Free up memory
+        gc.collect()
+        torch.cuda.empty_cache()
         
         # Extract PartField features for appearance mesh
         log.info("Extracting Appearance Mesh PartField feature planes...")
@@ -236,20 +235,17 @@ def main():
 
         if args.appearance_image:
             app_type = 'image'
-            app = args.appearance_image
-
             app_image = Image.open(args.appearance_image).convert('RGB')
             app_image.save(osp.join(args.output_dir, 'app_image.png'))
-
-        elif args.appearance_text:
+        else:
             app_type = 'text'
-            app = args.appearance_text
         
         log.info(f"Using {app_type} for self-similarity guidance...")
-        
 
-        # Self-Similarity Optimization
-        self_similarity.optimize_self_similarity(cfg, app, app_type, args.output_dir)
+        self_similarity.optimize_self_similarity(
+            cfg, app_type, args.output_dir,
+            text_prompt=args.appearance_text if app_type == 'text' else None,
+        )
     
     else:
         raise NotImplementedError(f"Guidance mode {args.guidance_mode} not implemented.")

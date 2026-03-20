@@ -19,7 +19,6 @@ import viser
 
 # ── Project root ──────────────────────────────────────────────────────────────
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
 
 os.environ["SPCONV_ALGO"] = "native"
 
@@ -156,6 +155,7 @@ def _run_pipeline(
     app_image_path: str | None,
     convert_yup: bool,
     output_dir: str,
+    tmp_files: list[str] | None = None,
 ) -> None:
     """Run run.py as a subprocess in a background thread."""
     state["running"] = True
@@ -219,6 +219,11 @@ def _run_pipeline(
         gui["status_md"].content = f"**Error:** {exc}"
 
     finally:
+        for path in (tmp_files or []):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
         state["running"] = False
         gui["generate_btn"].disabled = False
         gui["generate_btn"].label = "Generate"
@@ -442,7 +447,9 @@ def _on_generate(_) -> None:
             state["struct_glb_bytes"] = f.read()
 
     # Write structure mesh to temp file
+    tmp_files: list[str] = []
     struct_path = _write_upload_to_tmp(state["struct_glb_bytes"], ".glb")
+    tmp_files.append(struct_path)
 
     # Validate and prepare mode-specific inputs
     sim_image_path = None
@@ -453,6 +460,7 @@ def _on_generate(_) -> None:
         sim_text = gui["sim_text"].value.strip()
         if state["sim_image_bytes"]:
             sim_image_path = _write_upload_to_tmp(state["sim_image_bytes"], ".png")
+            tmp_files.append(sim_image_path)
             sim_text = ""
         elif not sim_text:
             gui["status_md"].content = (
@@ -466,8 +474,10 @@ def _on_generate(_) -> None:
             )
             return
         app_mesh_path = _write_upload_to_tmp(state["app_mesh_bytes"], ".glb")
+        tmp_files.append(app_mesh_path)
         if state["app_image_bytes"]:
             app_image_path = _write_upload_to_tmp(state["app_image_bytes"], ".png")
+            tmp_files.append(app_image_path)
         sim_text = ""
 
     # Output directory
@@ -488,6 +498,7 @@ def _on_generate(_) -> None:
             app_image_path,
             gui["convert_yup"].value,
             output_dir,
+            tmp_files,
         ),
         daemon=True,
     ).start()

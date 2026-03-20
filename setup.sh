@@ -1,7 +1,3 @@
-conda create -n guideflow3d python=3.11 -y
-conda activate guideflow3d
-conda init
-
 pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
 
 # basic
@@ -11,10 +7,14 @@ pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67
 # xformers
 pip install xformers==0.0.31 --no-deps --index-url https://download.pytorch.org/whl/cu128
 
+# psutil
+pip install psutil
+
 # flash-attn
 git clone https://github.com/Dao-AILab/flash-attention.git
 cd flash-attention
-pip install --no-build-isolation -e .
+git checkout v2.8.3
+MAX_JOBS=1 pip install --no-build-isolation .
 cd ..
 rm -rf flash-attention
 
@@ -50,6 +50,9 @@ pip install vtk
 
 # python-pycg
 pip install -U 'python-pycg[all]'
+
+# Install project as editable package (resolves lib/ and third_party/ imports)
+pip install -e .
 
 # Version Issues
 pip install tetgen==0.6.4

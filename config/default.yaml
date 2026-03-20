@@ -6,6 +6,13 @@ feature_name: "dinov2_vitl14_reg"
 enc_pretrained: "JeffreyXiang/TRELLIS-image-large/ckpts/slat_enc_swin8_B_64l8_fp16"
 latent_name: "dinov2_vitl14_reg_slat_enc_swin8_B_64l8_fp16"
 
+# voxel / feature grid
+voxel_resolution: 64
+
+# dinov2 input
+dinov2_input_size: 518
+dinov2_patch_size: 14
+
 # render
 num_views: 150
 
@@ -33,7 +40,7 @@ app_guidance:
 
 # self-similarity guidance
 sim_guidance:
-  num_part_clusters: 10
+  num_part_clusters: 5
   steps: 300
   learning_rate: 5e-4
   loss_weight: 1.0

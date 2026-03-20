@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import utils3d
 import logging
+from omegaconf import DictConfig
 
 import third_party.TRELLIS.trellis.modules.sparse as sp
 from third_party.TRELLIS.trellis.pipelines import TrellisImageTo3DPipeline, TrellisTextTo3DPipeline
@@ -12,28 +13,29 @@ from lib.util import generation, partfield
 # Global logger
 log = logging.getLogger(__name__)
 
-def attn_cosine_sim(x, eps=1e-08):
+def attn_cosine_sim(x: torch.Tensor, eps: float = 1e-08) -> torch.Tensor:
     x = x[0]  # TEMP: getting rid of redundant dimension, TBF
     norm1 = x.norm(dim=2, keepdim=True)
     factor = torch.clamp(norm1 @ norm1.permute(0, 2, 1), min=eps)
     sim_matrix = (x @ x.permute(0, 2, 1)) / factor
     return sim_matrix
 
-def optimize_self_similarity(cfg, app, app_type, output_dir):
+def optimize_self_similarity(cfg: DictConfig, app_type: str, output_dir: str, text_prompt: str | None = None) -> None:
     log.info("Starting self-similarity optimization...")
     
     if app_type == 'image':
         generation_pipeline = TrellisImageTo3DPipeline.from_pretrained(cfg.trellis_img_model_name)
-        app = Image.open(osp.join(output_dir, 'app_image.png')).convert('RGB')
-        app = generation_pipeline.preprocess_image(app)
+        image = Image.open(osp.join(output_dir, 'app_image.png')).convert('RGB')
+        cond_input = generation_pipeline.preprocess_image(image)
     else:
         generation_pipeline = TrellisTextTo3DPipeline.from_pretrained(cfg.trellis_text_model_name)
+        cond_input = text_prompt
     generation_pipeline.cuda()
     
     # Load Structure Data
     struct_coords = utils3d.io.read_ply(osp.join(output_dir, 'voxels', 'struct_voxels.ply'))[0]
     struct_coords = torch.from_numpy(struct_coords).float().cuda()
-    struct_coords = ((struct_coords + 0.5) * 64).long()
+    struct_coords = ((struct_coords + 0.5) * cfg.voxel_resolution).long()
     
     zeros = torch.zeros((struct_coords.size(0), 1), dtype=struct_coords.dtype, device=struct_coords.device)
     struct_coords = torch.cat([zeros, struct_coords], dim=1)
@@ -42,7 +44,7 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
     path = osp.join(output_dir, "partfield", "part_feat_struct_mesh_zup_batch_part_plane.npy")
     struct_part_planes = torch.from_numpy(np.load(path, allow_pickle=True)).cuda()
 
-    struct_labels = partfield.cluster_geoms(struct_coords, struct_part_planes, num_clusters=cfg.sim_guidance.num_part_clusters)
+    struct_labels = partfield.cluster_geoms(struct_coords, struct_part_planes, num_clusters=cfg.sim_guidance.num_part_clusters, voxel_resolution=cfg.voxel_resolution)
 
     # Optimization Starts...
     struct_labels = torch.from_numpy(struct_labels.flatten()).cuda()
@@ -50,9 +52,8 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
     
     param_list = [struct_feats_params]
     optimizer = torch.optim.AdamW(param_list, lr=cfg.sim_guidance.learning_rate)
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 1)
 
-    cond = generation_pipeline.get_cond([app])
+    cond = generation_pipeline.get_cond([cond_input])
     
     flow_model = generation_pipeline.models['slat_flow_model']
     
@@ -114,9 +115,9 @@ def optimize_self_similarity(cfg, app, app_type, output_dir):
             total_loss = cfg.sim_guidance.loss_weight * struct_loss
             total_loss.backward()
             optimizer.step()
-            scheduler.step()
             
             if (iteration == 0) or (iteration + 1) % cfg.log_every == 0:
+                torch.cuda.synchronize()
                 message = f"Step: {iteration}, Structure Loss: {struct_loss.item():.4f}, Total Loss: {total_loss.item():.4f}"
                 log.info(message)
 

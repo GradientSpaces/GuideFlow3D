@@ -46,42 +46,75 @@ _**Check out our [Project Page](https://sayands.github.io/guideflow3d) for more 
 
 Tested on **Ubuntu 22.04.05 LTS**, **CUDA 12.8**, **PyTorch 2.7.1**.
 
-1. **Conda:** install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda so `conda` is on your `PATH`. Linux x86_64 (silent install to `~/miniconda3`, then hook your shell):
+**1. Clone the repo and install conda.**
+Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or Anaconda so `conda` is on your `PATH`. Linux x86_64 one-liner (silent install to `~/miniconda3`, then hook your shell):
 
 ```bash
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && bash miniconda.sh -b -p "$HOME/miniconda3" && rm miniconda.sh && "$HOME/miniconda3/bin/conda" init
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh 
+bash miniconda.sh -b -p "$HOME/miniconda3" 
+rm miniconda.sh
+"$HOME/miniconda3/bin/conda" init
 ```
 
-2. From the repo root: `bash setup.sh`
-
-**What [`setup.sh`](setup.sh) does:** creates conda env `guideflow3d` (Python 3.11), installs PyTorch and dependencies, and builds or installs compiled packages (e.g. flash-attention, nvdiffrast). It does **not** install Blender or PartField weights — add those under **Setup** below. The install is slow; **`sudo`** may be used for system packages.
-
-### Setup
-
-Extra assets required to run the full pipeline (not installed by `setup.sh`):
-
-**Blender 3.0.1** (Linux x64) — multiview rendering uses the TRELLIS Blender script. Set **`BLENDER_HOME`** to the `blender` executable. If you extract [the 3.0.1 tarball](https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz) under `~/Downloads`:
+**2. Create and activate the conda environment.**
 
 ```bash
-export BLENDER_INSTALLATION_PATH="$HOME/Downloads"   # default in `lib/util/render.py`
+conda create -n guideflow3d python=3.11 -y
+conda activate guideflow3d
+```
+
+**3. Run `setup.sh`.**
+From the repo root, run `bash setup.sh`. This installs PyTorch and all dependencies, and builds compiled packages (flash-attention, nvdiffrast, etc.). The install is slow; `sudo` may be needed for system packages.
+
+**4. Install Blender 3.0.1** (Linux x64).
+Multiview rendering uses the TRELLIS Blender script. Download and extract the [3.0.1 tarball](https://download.blender.org/release/Blender3.0/blender-3.0.1-linux-x64.tar.xz), then point `BLENDER_HOME` at the binary:
+
+```bash
+export BLENDER_INSTALLATION_PATH="$HOME/Downloads"
 export BLENDER_HOME="$BLENDER_INSTALLATION_PATH/blender-3.0.1-linux-x64/blender"
 ```
 
-Add these to your shell or the same session before Python. If the binary is missing, `lib/util/render.py` may download and extract once (needs **`sudo`** and apt deps like [`bash/run.sh`](bash/run.sh)), or run that script’s `install_blender` block once.
+Add these to your `.bashrc`/`.zshrc` or export them in the same session before running the pipeline.
 
-**PartField (Objaverse checkpoint)** — `run.py` loads weights from **`weights/model_objaverse.ckpt`** (see [`continue_ckpt`](third_party/PartField/config.yaml) in `third_party/PartField/config.yaml`). Download the **Objaverse** pretrained model from [PartField](https://github.com/nv-tlabs/PartField) (*Pretrained Model* in their README), place **`model_objaverse.ckpt`** in **`weights/`** at the **repository root** (that directory is gitignored). Licensing and download links are described upstream.
+**5. Download PartField weights.**
+Download the **Objaverse** pretrained model from [PartField](https://github.com/nv-tlabs/PartField) (*Pretrained Model* in their README) and place `model_objaverse.ckpt` in the `weights/` directory at the repository root (gitignored). The path must match [`continue_ckpt`](third_party/PartField/config.yaml) in `third_party/PartField/config.yaml`.
 
-**Troubleshooting:** If **`conda activate`** does not apply after `setup.sh`, open a new terminal and run `conda activate guideflow3d`. If Blender is missing, point **`BLENDER_HOME`** at the extracted `blender-3.0.1-linux-x64/blender` binary; set **`BLENDER_INSTALLATION_PATH`** if you did not use `~/Downloads`. If PartField inference fails, confirm **`weights/model_objaverse.ckpt`** exists and matches **`third_party/PartField/config.yaml`**.
+<details>
+<summary><b>Troubleshooting</b></summary>
+
+- If `conda activate` does not apply after `setup.sh`, open a new terminal and run `conda activate guideflow3d`.
+- If Blender is missing at runtime, verify `BLENDER_HOME` points to the extracted `blender-3.0.1-linux-x64/blender` binary. Set `BLENDER_INSTALLATION_PATH` if you did not use `~/Downloads`.
+- If PartField inference fails, confirm `weights/model_objaverse.ckpt` exists and matches `third_party/PartField/config.yaml`.
+
+</details>
+
+## 🗂️ Project Structure
+
+```
+guideflow3d/
+├── run.py                  # main CLI entry point
+├── config/default.yaml     # default hyperparameters
+├── gui/app.py              # Viser interactive demo
+├── bash/run.sh             # example batch runs
+├── lib/
+│   ├── opt/                # guidance optimization
+│   │   ├── appearance.py   #   appearance (part-aware) guidance
+│   │   └── self_similarity.py  #   self-similarity guidance
+│   └── util/               # pipeline utilities
+│       ├── generation.py   #   DINOv2 feature extraction, SLAT encoding/decoding
+│       ├── render.py       #   Blender multiview rendering
+│       ├── pointcloud.py   #   mesh voxelization
+│       └── partfield.py    #   PartField feature sampling & co-segmentation
+├── third_party/            # vendored TRELLIS and PartField
+├── examples/               # sample meshes and images
+└── weights/                # PartField checkpoint (gitignored)
+```
 
 ## 💡 Usage
 
-Work from the **repository root**. We provide sample meshes and images under **[`examples/`](examples/)**.
+Work from the **repository root** with the `guideflow3d` env active. Steps 4–5 of [Installation](#-installation) (Blender + PartField weights) are required before running anything below. We provide sample meshes and images under [`examples/`](examples/).
 
-**Blender:** set **`BLENDER_HOME`** as in **Installation → Setup**.
-
-**PartField:** place the Objaverse checkpoint at **`weights/model_objaverse.ckpt`** as in **Installation → Setup** and [PartField](https://github.com/nv-tlabs/PartField). Required for PartField inside **`run.py`** and the GUI.
-
-### Demo → `python gui/app.py`
+### Demo
 
 To start the web-based interactive demo:
 
@@ -89,11 +122,11 @@ To start the web-based interactive demo:
 python gui/app.py
 ```
 
-Open **http://localhost:8080** in your browser ([Viser](https://github.com/nerfstudio-project/viser)). Outputs default to `outputs/gui_run_<id>/`; use **Toggle Structure / Output** to compare output mesh and input structure mesh.
+Open **http://localhost:8080** in your browser ([Viser](https://github.com/nerfstudio-project/viser)). Outputs default to `outputs/gui_run_<id>/`; use **Toggle Structure / Output** to compare the output mesh against the input structure mesh.
 
 ### `run.py` (main script)
 
-[`run.py`](run.py) is the main command-line entry point for the full pipeline. It writes `out_app.glb` or `out_sim.glb` under `--output_dir`, depending on the mode.
+[`run.py`](run.py) is the main command-line entry point. It runs the full pipeline end-to-end: Blender rendering → voxelization → PartField co-segmentation → (appearance only) DINOv2 feature extraction → SLAT encoding → guided flow sampling → SLAT decoding.
 
 | Argument | Required | Description |
 |----------|----------|-------------|
@@ -114,9 +147,22 @@ python run.py --guidance_mode similarity \
   --appearance_text "a wooden chair"
 ```
 
+**Outputs.** Each run writes the following under `--output_dir`:
+
+| File | Description |
+|------|-------------|
+| `out_app.glb` / `out_sim.glb` | Final textured mesh (appearance / similarity mode) |
+| `out_gaussian_app.mp4` / `out_gaussian_sim.mp4` | Gaussian splatting turntable video |
+| `struct_renders/`, `app_renders/` | Blender multiview renders |
+| `voxels/` | Voxelized structure (and appearance) meshes |
+| `features/`, `latents/` | DINOv2 features and SLAT latents (appearance mode) |
+| `partfield/` | PartField feature planes |
+
+**Expected runtime:** ~2–4 minutes on a single RTX 4090 (appearance mode, 300 steps). Similarity mode is faster since it skips DINOv2 extraction and SLAT encoding.
+
 ### `bash/run.sh` (a few examples)
 
-[`bash/run.sh`](bash/run.sh) shows a handful of example commands: on Linux it can install Blender if missing, then runs several `run.py` jobs on files in [`examples/`](examples/).
+[`bash/run.sh`](bash/run.sh) shows a handful of example commands, running several `run.py` jobs on files in [`examples/`](examples/).
 
 ```bash
 bash bash/run.sh
@@ -125,6 +171,7 @@ bash bash/run.sh
 ## 🙏 Acknowledgments
 
 - 🧊 **[TRELLIS](https://github.com/microsoft/TRELLIS)** — structured 3D latents, encoders, rendering.
+- 🔧 **[PartField](https://github.com/nv-tlabs/PartField)** — part-aware 3D feature fields.
 - 🎛️ **[SpaceControl](https://github.com/spacecontrol3d/spacecontrol)** — Viser GUI ideas.
 
 ## 📜 Citation

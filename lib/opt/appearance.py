@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import utils3d
 from PIL import Image
 import logging
+from omegaconf import DictConfig
 
 import third_party.TRELLIS.trellis.modules.sparse as sp
 from third_party.TRELLIS.trellis.pipelines import TrellisImageTo3DPipeline
@@ -13,7 +14,7 @@ from lib.util import partfield, generation
 # Global logger
 log = logging.getLogger(__name__)
 
-def optimize_appearance(cfg, output_dir):
+def optimize_appearance(cfg: DictConfig, output_dir: str) -> None:
     log.info("Starting appearance optimization...")
     
     generation_pipeline = TrellisImageTo3DPipeline.from_pretrained(cfg.trellis_img_model_name)
@@ -27,7 +28,7 @@ def optimize_appearance(cfg, output_dir):
     
     struct_coords = utils3d.io.read_ply(osp.join(output_dir, 'voxels', 'struct_voxels.ply'))[0]
     struct_coords = torch.from_numpy(struct_coords).float().cuda()
-    struct_coords = ((struct_coords + 0.5) * 64).long()
+    struct_coords = ((struct_coords + 0.5) * cfg.voxel_resolution).long()
     
     app_image = Image.open(osp.join(output_dir, 'app_image.png')).convert('RGB')
     
@@ -41,7 +42,7 @@ def optimize_appearance(cfg, output_dir):
     path = osp.join(output_dir, 'partfield', 'part_feat_app_mesh_zup_batch_part_plane.npy')
     app_part_planes = torch.from_numpy(np.load(path, allow_pickle=True)).cuda()
 
-    app_labels, struct_labels, point_feat1, point_feat2 = partfield.cosegment_part(app_coords, app_part_planes, struct_coords, struct_part_planes, cfg.app_guidance.num_part_clusters)
+    app_labels, struct_labels, point_feat1, point_feat2 = partfield.cosegment_part(app_coords, app_part_planes, struct_coords, struct_part_planes, cfg.app_guidance.num_part_clusters, cfg.voxel_resolution)
         
     # Optimization Starts
     app_labels = torch.from_numpy(app_labels.flatten()).cuda()
@@ -54,7 +55,6 @@ def optimize_appearance(cfg, output_dir):
 
     param_list = [struct_feats_params]
     optimizer = torch.optim.AdamW(param_list, lr=cfg.app_guidance.learning_rate)
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 1)
 
     image = generation_pipeline.preprocess_image(app_image)
     cond = generation_pipeline.get_cond([image])
@@ -118,9 +118,9 @@ def optimize_appearance(cfg, output_dir):
             
             total_loss.backward()
             optimizer.step()
-            scheduler.step()
 
             if (iteration == 0) or (iteration + 1) % cfg.log_every == 0:
+                torch.cuda.synchronize()
                 message = f"Step: {iteration}, Appearance Loss: {app_loss.item():.4f}, Total Loss: {total_loss.item():.4f}"
                 log.info(message)
 

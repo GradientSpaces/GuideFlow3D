@@ -5,8 +5,12 @@ from sklearn.neighbors import KDTree
 import torch
 import torch.nn.functional as F
 
-def get_voxel_partfeats(voxel_coords, part_planes):
-    voxel_coords = ((voxel_coords[:, 1:] + 0.5) / 64 - 0.5).cpu().numpy()
+def get_voxel_partfeats(
+    voxel_coords: torch.Tensor,
+    part_planes: torch.Tensor,
+    voxel_resolution: int = 64,
+) -> np.ndarray:
+    voxel_coords = ((voxel_coords[:, 1:] + 0.5) / voxel_resolution - 0.5).cpu().numpy()
     bbmin = voxel_coords.min(0)
     bbmax = voxel_coords.max(0)
     center = (bbmin + bbmax) * 0.5
@@ -19,10 +23,10 @@ def get_voxel_partfeats(voxel_coords, part_planes):
     
     return part_feats
 
-def sample_triplane_feat(feature_triplane, normalized_pos):
-    '''
-        normalized_pos [-1, 1]
-    '''
+def sample_triplane_feat(
+    feature_triplane: torch.Tensor,
+    normalized_pos: torch.Tensor,
+) -> torch.Tensor:
     tri_plane = torch.unbind(feature_triplane, dim=1)
 
     x_feat = F.grid_sample(
@@ -48,9 +52,16 @@ def sample_triplane_feat(feature_triplane, normalized_pos):
     final_feat = final_feat.squeeze(dim=2).permute(0, 2, 1)  # 32dimension
     return final_feat
 
-def cosegment_part(app_coords, app_part_planes, struct_coords, struct_part_planes, num_clusters=30):
-    struct_partfield_feats = get_voxel_partfeats(struct_coords, struct_part_planes)
-    app_partfield_feats = get_voxel_partfeats(app_coords, app_part_planes)
+def cosegment_part(
+    app_coords: torch.Tensor,
+    app_part_planes: torch.Tensor,
+    struct_coords: torch.Tensor,
+    struct_part_planes: torch.Tensor,
+    num_clusters: int = 30,
+    voxel_resolution: int = 64,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    struct_partfield_feats = get_voxel_partfeats(struct_coords, struct_part_planes, voxel_resolution)
+    app_partfield_feats = get_voxel_partfeats(app_coords, app_part_planes, voxel_resolution)
     
     point_feat1 = app_partfield_feats
     point_feat2 = struct_partfield_feats
@@ -73,7 +84,6 @@ def cosegment_part(app_coords, app_part_planes, struct_coords, struct_part_plane
     
     init_mode = np.array(feature_means1)
     
-    point_feat2 = point_feat2 / np.linalg.norm(point_feat2, axis=-1, keepdims=True)
     clustering2 = KMeans(n_clusters=num_clusters, random_state=0, init=init_mode).fit(point_feat2)
 
     ### Get feature means per cluster
@@ -89,8 +99,13 @@ def cosegment_part(app_coords, app_part_planes, struct_coords, struct_part_plane
     
     return labels1, relabelled_2, point_feat1, point_feat2
 
-def cluster_geoms(struct_coords, struct_part_planes, num_clusters=10):
-    struct_partfield_feats = get_voxel_partfeats(struct_coords, struct_part_planes)
+def cluster_geoms(
+    struct_coords: torch.Tensor,
+    struct_part_planes: torch.Tensor,
+    num_clusters: int = 10,
+    voxel_resolution: int = 64,
+) -> np.ndarray:
+    struct_partfield_feats = get_voxel_partfeats(struct_coords, struct_part_planes, voxel_resolution)
     
     point_feat = struct_partfield_feats
     point_feat = point_feat / np.linalg.norm(point_feat, axis=-1, keepdims=True)

@@ -1,19 +1,24 @@
+from __future__ import annotations
+
 import os
 import json
+from typing import Any
+
 import torch
 import numpy as np
 from PIL import Image
 import utils3d
 import imageio
 import torch.nn.functional as F
+from omegaconf import DictConfig
 
 import third_party.TRELLIS.trellis.modules.sparse as sp
 from third_party.TRELLIS.trellis.utils import render_utils, postprocessing_utils
 
-def get_data(model_dir, view):
+def get_data(model_dir: str, view: dict[str, Any], dinov2_input_size: int = 518) -> dict[str, torch.Tensor]:
     image_path = os.path.join(model_dir, view['file_path'])
     image = Image.open(image_path)
-    image = image.resize((518, 518), Image.Resampling.LANCZOS)
+    image = image.resize((dinov2_input_size, dinov2_input_size), Image.Resampling.LANCZOS)
     image = np.array(image).astype(np.float32) / 255
     image = image[:, :, :3] * image[:, :, 3:]
     image = torch.from_numpy(image).permute(2, 0, 1).float()
@@ -31,7 +36,18 @@ def get_data(model_dir, view):
     }
 
 @torch.no_grad()
-def extract_feature(output_dir, dinov2_model, transform, n_patch=518 // 14, batch_size=8, feature_name='dinov2_vitl14_reg'):
+def extract_feature(
+    output_dir: str,
+    dinov2_model: torch.nn.Module,
+    transform: Any,
+    cfg: DictConfig | None = None,
+    batch_size: int = 8,
+    feature_name: str = 'dinov2_vitl14_reg',
+) -> None:
+    dinov2_input_size = cfg.dinov2_input_size if cfg else 518
+    dinov2_patch_size = cfg.dinov2_patch_size if cfg else 14
+    voxel_resolution = cfg.voxel_resolution if cfg else 64
+    n_patch = dinov2_input_size // dinov2_patch_size
     dinov2_model.eval().cuda()
 
     with open(os.path.join(output_dir, 'app_renders', 'transforms.json'), 'r') as f:
@@ -41,14 +57,14 @@ def extract_feature(output_dir, dinov2_model, transform, n_patch=518 // 14, batc
     data = []
 
     for view in frames:
-        datum = get_data(os.path.join(output_dir, 'app_renders'), view)
+        datum = get_data(os.path.join(output_dir, 'app_renders'), view, dinov2_input_size)
         datum['image'] = transform(datum['image'])
         data.append(datum)
     
     positions = utils3d.io.read_ply(os.path.join(output_dir, 'voxels', 'app_voxels.ply'))[0]
     positions = torch.from_numpy(positions).float().cuda()
-    indices = ((positions + 0.5) * 64).long()
-    assert torch.all(indices >= 0) and torch.all(indices < 64), "Some vertices are out of bounds"
+    indices = ((positions + 0.5) * voxel_resolution).long()
+    assert torch.all(indices >= 0) and torch.all(indices < voxel_resolution), "Some vertices are out of bounds"
     
     n_views = len(data)
     N = positions.shape[0]
@@ -75,18 +91,16 @@ def extract_feature(output_dir, dinov2_model, transform, n_patch=518 // 14, batc
     patchtokens = torch.cat(patchtokens_lst, dim=0)
     uv = torch.cat(uv_lst, dim=0)
     
-    pack['patchtokens'] = F.grid_sample(
-                    patchtokens.type(torch.float16),
-                    uv.unsqueeze(1).type(torch.float16),
-                    mode='bilinear',
-                    align_corners=False,
-                ).squeeze(2).permute(0, 2, 1).cpu().numpy()
-    
-    assert not torch.isnan(patchtokens.type(torch.float16)).any(), "NaNs in patchtokens"
-    assert not np.isnan(pack['patchtokens']).any(), "NaNs in pack patchtokens"
-    assert not torch.isnan(uv.unsqueeze(1).type(torch.float16)).any(), "NaNs in uv"
-    
-    pack['patchtokens'] = np.mean(pack['patchtokens'], axis=0).astype(np.float16)
+    sampled = F.grid_sample(
+        patchtokens,
+        uv.unsqueeze(1),
+        mode='bilinear',
+        align_corners=False,
+    ).squeeze(2).permute(0, 2, 1)
+
+    assert torch.isfinite(sampled).all(), "Non-finite values in grid-sampled patchtokens"
+
+    pack['patchtokens'] = sampled.cpu().numpy().mean(axis=0).astype(np.float16)
     
     save_path = os.path.join(output_dir, 'features', feature_name, 'appearance.npz')
     np.savez_compressed(save_path, **pack)
@@ -95,7 +109,7 @@ def extract_feature(output_dir, dinov2_model, transform, n_patch=518 // 14, batc
     del pack
     
 @torch.no_grad()
-def get_latent(output_dir, feature_name, latent_name, encoder):
+def get_latent(output_dir: str, feature_name: str, latent_name: str, encoder: torch.nn.Module) -> None:
     feats = np.load(os.path.join(output_dir, 'features', feature_name, 'appearance.npz'))
     feats = sp.SparseTensor(
         feats = torch.from_numpy(feats['patchtokens']).type(torch.float32),
@@ -117,7 +131,13 @@ def get_latent(output_dir, feature_name, latent_name, encoder):
     del latent
     del pack
 
-def decode_slat(generation_pipeline, feats, coords, out_meshpath, out_gspath):
+def decode_slat(
+    generation_pipeline: Any,
+    feats: torch.Tensor,
+    coords: torch.Tensor,
+    out_meshpath: str,
+    out_gspath: str,
+) -> None:
     # Decode Output SLAT
     slat = sp.SparseTensor(
             feats = feats.float(),
